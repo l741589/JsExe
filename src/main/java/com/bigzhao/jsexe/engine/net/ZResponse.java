@@ -87,7 +87,6 @@ public class ZResponse {
 	
 	public Object json(){
         try {
-
             return Engine.eval("(" + $body() + ")");
         }catch (Exception e){
             e.printStackTrace();

@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.StreamSupport;
 
 /**
  * Created by Roy on 15-4-27.
@@ -54,6 +55,7 @@ public class Engine {
         return jc().context;
     }
     public static Scriptable scope() {
+        if (jc().currentScope==null) jc().currentScope=new Scope("$$$###@@@<<<<Def4u1t-t0keN>>>@@@###$$$");
         return jc().currentScope.scope;
     }
 
@@ -105,11 +107,11 @@ public class Engine {
     public static Object load(String filename,Object...args){
         try {
             filename=genFilename(filename);
+            Scriptable scope=scope();
             if (jc().currentScope.loaded.containsKey(filename)) return jc().currentScope.loaded.get(filename);
             if (jc().currentScope.loading.contains(filename)) throw new RuntimeException("cyclic dependency");
             jc().currentScope.loading.add(filename);
             String code= FileUtils.readFileToString(new File(filename));
-            Scriptable scope=scope();
             ScriptableObject.putProperty(scope, "arguments", newArray(args));
             Object ret=context().evaluateString(scope, code, filename, 1, null);
             jc().currentScope.loading.remove(filename);
@@ -125,6 +127,7 @@ public class Engine {
     }
 
     public static void exit() {
+        jcontext.set(null);
         Context.exit();
     }
 
@@ -137,7 +140,7 @@ public class Engine {
         Object o = thisobj.get(name, thisobj);
         if (!(o instanceof Function)) return null;
         Function f = (Function) o;
-        return call(thisobj,f,args);
+        return call(thisobj, f, args);
     }
 
     public static Object call(Scriptable thisobj,Function f,Object...args){
@@ -165,12 +168,15 @@ public class Engine {
     }
 
     public static Object javaToJs(Object o){
-        if (o instanceof JSONArray){
-            JSONArray json=(JSONArray)o;
-            Object[] arr=json.stream().map(Engine::javaToJs).toArray();
+        if (o instanceof Iterable){
+            Iterable<Object> json=(Iterable<Object>)o;
+            Object[] arr= StreamSupport.stream(json.spliterator(),false).map(Engine::javaToJs).toArray();
             return Engine.newArray(arr);
-        }else if (o instanceof JSONObject){
-            JSONObject json=(JSONObject)o;
+        }else if (o.getClass().isArray()){
+            Object[] arr= Arrays.asList((Object[])o).stream().map(Engine::javaToJs).toArray();
+            return Engine.newArray(arr);
+        }else if (o instanceof Map){
+            Map<String,Object> json=(Map<String,Object>)o;
             NativeObject obj=(NativeObject)Engine.newObject();
             for (Map.Entry<String, Object> e:json.entrySet()){
                 ScriptableObject.putProperty(obj, e.getKey(), javaToJs(e.getValue()));

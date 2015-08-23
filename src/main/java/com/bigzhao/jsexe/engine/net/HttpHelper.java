@@ -14,7 +14,9 @@ import org.apache.http.cookie.Cookie;
 import org.apache.http.cookie.CookieSpecProvider;
 import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.cookie.*;
 import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.Scriptable;
@@ -39,6 +41,10 @@ public class HttpHelper {
     public static HttpClient getClient(){
         if (client==null) client= HttpClients.createDefault();
         return client;
+    }
+
+    public static void setClient(CloseableHttpClient client) {
+        HttpHelper.client = client;
     }
 
     public static HttpResponse exec(HttpUriRequest request){
