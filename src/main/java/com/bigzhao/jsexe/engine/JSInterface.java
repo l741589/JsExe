@@ -4,6 +4,9 @@ import com.bigzhao.jsexe.engine.media.MediaHelper;
 import com.bigzhao.jsexe.engine.net.HttpHelper;
 import com.bigzhao.jsexe.engine.net.ZResponse;
 import org.apache.commons.io.FileUtils;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ErrorReporter;
+import org.mozilla.javascript.ast.Scope;
 
 
 import java.io.*;
@@ -14,7 +17,7 @@ public class JSInterface {
 
 
     public Object load(String filename,Object...args){
-        return Engine.load(filename,args);
+        return Engine.load(filename, args);
     }
     public String loadText(String filename){
       return Engine.loadText(filename);

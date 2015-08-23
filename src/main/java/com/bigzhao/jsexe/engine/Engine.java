@@ -22,10 +22,9 @@ public class Engine {
 
     private static class Scope{
         final Scriptable scope=context().newObject(topScope());
-        File file;
-        final HashSet<String> loading=new HashSet<>();
+        final LinkedList<String> file=new LinkedList<>();
+        //final HashSet<String> loading=new HashSet<>();
         final HashMap<String,Object> loaded=new HashMap<>();
-
         Scope(String token){
             ScriptableObject.putProperty(topScope(), token, this);
             ScriptableObject.putProperty(scope, "$", Context.javaToJS(new JSInterface(), scope));
@@ -73,24 +72,28 @@ public class Engine {
     }
 
     public static String genFilename(String filename){
-        if (!filename.contains(":")&&!filename.startsWith("/")) filename=System.getProperty("user.dir")+File.separatorChar+filename;
-        return filename;
+        if (filename.contains(":")||filename.startsWith("/")) return filename;
+        String f=new File(currentFilename()).getParent()+File.separatorChar+filename;
+        if (new File(f).exists()) return f;
+        return System.getProperty("user.dir")+File.separatorChar+filename;
     }
 
     public static Object execute(String scopeToken,String filename,Object...args){
+        boolean fileAdded=false;
         try {
             filename=genFilename(filename);
             Scriptable scope=scope(scopeToken);
-            jc().currentScope.loading.add(filename);
+            //jc().currentScope.loading.add(filename);
             String code= FileUtils.readFileToString(new File(filename));
-            jc().currentScope.file=new File(filename);
-
+            jc().currentScope.file.add(filename);
+            fileAdded=true;
             ScriptableObject.putProperty(scope, "arguments", newArray(args));
             return context().evaluateString(scope, code, filename, 1, null);
         } catch (IOException e) {
             deleteScope(scopeToken);
             throw new RuntimeException(e);
         }finally {
+            if (fileAdded) jc().currentScope.file.removeLast();
             if (TextUtils.isEmpty(scopeToken)) deleteScope(scopeToken);
         }
     }
@@ -105,21 +108,29 @@ public class Engine {
     }
 
     public static Object load(String filename,Object...args){
+        boolean fileAdded=false;
         try {
             filename=genFilename(filename);
             Scriptable scope=scope();
             if (jc().currentScope.loaded.containsKey(filename)) return jc().currentScope.loaded.get(filename);
-            if (jc().currentScope.loading.contains(filename)) throw new RuntimeException("cyclic dependency");
-            jc().currentScope.loading.add(filename);
+            if (jc().currentScope.file.contains(filename)) throw new RuntimeException("cyclic dependency");
+            jc().currentScope.file.add(filename);
+            fileAdded=true;
             String code= FileUtils.readFileToString(new File(filename));
             ScriptableObject.putProperty(scope, "arguments", newArray(args));
             Object ret=context().evaluateString(scope, code, filename, 1, null);
-            jc().currentScope.loading.remove(filename);
+            //jc().currentScope.loading.remove(filename);
             jc().currentScope.loaded.put(filename,ret);
             return ret;
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }finally {
+            if(fileAdded) jc().currentScope.file.removeLast();
         }
+    }
+
+    public static String currentFilename(){
+        return jc().currentScope.file.getLast();
     }
 
     public static Object eval(String text){
