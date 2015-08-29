@@ -34,7 +34,7 @@ public class HttpHelper {
 
     public static HttpHost proxy;
 
-    private static ConcurrentHashMap<Scriptable,HttpClientContext> contexts = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<Scriptable,HttpClientContext> contexts = new ConcurrentHashMap<Scriptable,HttpClientContext>();
 
     private static CloseableHttpClient client;
 

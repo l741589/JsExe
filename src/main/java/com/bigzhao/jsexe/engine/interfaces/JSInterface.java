@@ -1,17 +1,13 @@
-package com.bigzhao.jsexe.engine;
+package com.bigzhao.jsexe.engine.interfaces;
 
+import com.bigzhao.jsexe.engine.Engine;
 import com.bigzhao.jsexe.engine.media.MediaHelper;
 import com.bigzhao.jsexe.engine.net.HttpHelper;
 import com.bigzhao.jsexe.engine.net.ZResponse;
 import org.apache.commons.io.FileUtils;
-import org.mozilla.javascript.Context;
-import org.mozilla.javascript.ErrorReporter;
-import org.mozilla.javascript.ast.Scope;
 
 
 import java.io.*;
-import java.nio.charset.Charset;
-import java.security.MessageDigest;
 
 public class JSInterface {
 
@@ -25,18 +21,26 @@ public class JSInterface {
     public Object loadJson(String filename){
         return Engine.eval("("+loadText(filename)+")");
     }
-	public void print(String s){System.out.print(s);}
-	public void println(String s){System.out.println(s);}
-	public void println(){System.out.println();}
-	public void log(String s){println(s);}
-	public void log(){println();}	
-	public void print(String format,Object...args){	System.out.format(format.replace("%d", "%.0f"), args);}	
-	public void log(String format,Object...args){print(format,args);}
+    @Deprecated
+	public void print(String s){io.print(s);}
+    @Deprecated
+	public void println(String s){io.println(s);}
+    @Deprecated
+	public void println(){io.println();}
+    @Deprecated
+	public void log(String s){io.log(s);}
+    @Deprecated
+	public void log(){io.log();}
+    @Deprecated
+	public void print(String format,Object...args){	io.print(format, args);}
+    @Deprecated
+	public void log(String format,Object...args){io.log(format, args);}
+
     public String readKey(){
         String s=cmd("readkey pr");
         return s;
     }
-	
+
 	public String format(String format,Object...args){
 		return String.format(format.replace("%d", "%.0f"), args);
 	}
@@ -69,6 +73,7 @@ public class JSInterface {
         return System.setProperty(name,value);
     }
 
+    @Deprecated
     public static String cmd(String commandStr) {
         try {
             Process p = Runtime.getRuntime().exec(commandStr);
@@ -82,11 +87,15 @@ public class JSInterface {
                 sb.append(s).append("\r\n");
             }
             return sb.toString();
-        } catch (IOException|InterruptedException e) {
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }catch (InterruptedException e){
             throw new RuntimeException(e);
         }
     }
 
+
+    @Deprecated
     public void save(String filename,Object text){
         try {
             if (!filename.contains(":")&&!filename.startsWith("/")) filename=System.getProperty("user.dir")+ File.separatorChar+filename;
@@ -115,30 +124,7 @@ public class JSInterface {
 
     public HttpHelper http=new HttpHelper();
     public MediaHelper media=new MediaHelper();
+    public JSInterfaceIO io=new JSInterfaceIO();
+    public static Object util=new JSInterfaceUtil();
 
-    public static Object util=new Util();
-
-    public static class Util{
-        public static String md5(String s) {
-            char hexDigits[]={'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-            try {
-                byte[] btInput = s.getBytes(Charset.forName("utf-8"));
-                MessageDigest mdInst = MessageDigest.getInstance("MD5");
-                mdInst.update(btInput);
-                byte[] md = mdInst.digest();
-                int j = md.length;
-                char str[] = new char[j * 2];
-                int k = 0;
-                for (int i = 0; i < j; i++) {
-                    byte byte0 = md[i];
-                    str[k++] = hexDigits[byte0 >>> 4 & 0xf];
-                    str[k++] = hexDigits[byte0 & 0xf];
-                }
-                return new String(str);
-            } catch (Exception e) {
-                e.printStackTrace();
-                return null;
-            }
-        }
-    }
 }

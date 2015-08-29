@@ -81,7 +81,9 @@ public class ZElement {
 	}
 	
 	protected Object elems2Array(Elements elems) {
-		return Engine.newArray(elems.stream().map(ZElement::new).toArray());
+		Object[] arr=new Object[elems.size()];
+		for (int i=0;i<arr.length;++i) arr[i]=new ZElement(elems.get(i));
+		return Engine.newArray(arr);
 	}
 	
 	public String name(){

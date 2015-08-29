@@ -44,7 +44,7 @@ public class ZHttpPost extends HttpPost {
 		Object o=Engine.jsToJava(data);
 		if (o instanceof JSONObject){
 			JSONObject json=(JSONObject)o;
-			LinkedList<NameValuePair> pairs=new LinkedList<>();			
+			LinkedList<NameValuePair> pairs=new LinkedList<NameValuePair>();
 			for (Map.Entry<String, Object> p:json.entrySet()){
 				pairs.add(new BasicNameValuePair(p.getKey(), 
 						p.getValue()==null?null:p.getValue().toString()));

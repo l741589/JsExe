@@ -3,6 +3,7 @@ package com.bigzhao.jsexe.engine;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.bigzhao.jsexe.engine.interfaces.JSInterface;
 import org.apache.commons.io.FileUtils;
 import org.apache.http.util.TextUtils;
 import org.mozilla.javascript.*;
@@ -12,7 +13,6 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.StreamSupport;
 
 /**
  * Created by Roy on 15-4-27.
@@ -22,9 +22,9 @@ public class Engine {
 
     private static class Scope{
         final Scriptable scope=context().newObject(topScope());
-        final LinkedList<String> file=new LinkedList<>();
+        final LinkedList<String> file=new LinkedList<String>();
         //final HashSet<String> loading=new HashSet<>();
-        final HashMap<String,Object> loaded=new HashMap<>();
+        final HashMap<String,Object> loaded=new HashMap<String,Object>();
         Scope(String token){
             ScriptableObject.putProperty(topScope(), token, this);
             ScriptableObject.putProperty(scope, "$", Context.javaToJS(new JSInterface(), scope));
@@ -32,12 +32,32 @@ public class Engine {
     }
 
     private static class JContext{
-        final Context context=Context.enter();
+        Context context;
         Scope currentScope;
+
+        public JContext(){
+            try {
+                context = Context.enter();
+            }catch (Exception e){
+                if (context==null){
+                    e.printStackTrace();
+                    throw new RuntimeException(e);
+                }
+            }
+
+        }
+
+        @Override
+        protected void finalize() throws Throwable {
+            super.finalize();
+            try {
+                Context.exit();
+            }catch(Exception e){}
+        }
     }
     
-    private static ConcurrentHashMap<String, Scope> scopes = new ConcurrentHashMap<>();
-    private static ThreadLocal<JContext> jcontext = new ThreadLocal<>();
+    private static ConcurrentHashMap<String, Scope> scopes = new ConcurrentHashMap<String, Scope>();
+    private static ThreadLocal<JContext> jcontext = new ThreadLocal<JContext>();
     private static Scriptable topScope;
 
     private static JContext jc(){
@@ -138,8 +158,7 @@ public class Engine {
     }
 
     public static void exit() {
-        jcontext.set(null);
-        Context.exit();
+        jcontext=new ThreadLocal<JContext>();
     }
 
     public static Object call(String name,Object...args){
@@ -171,20 +190,20 @@ public class Engine {
     }
 
     public static NativeArray newArray(Object[] elements){
-        Scriptable s=context().newArray(scope(), Arrays.asList(elements).stream().map((input)-> {
-            if (input instanceof Scriptable) return input;
-            return Context.javaToJS(input, scope());
-        }).toArray());
-        return (NativeArray)s;
+        Object[] arr=new Object[elements.length];
+        for (int i=0;i<elements.length;++i) arr[i]=elements[i] instanceof Scriptable?elements[i]:Context.javaToJS(elements[i],scope());
+        return (NativeArray)context().newArray(scope(),arr);
     }
 
     public static Object javaToJs(Object o){
         if (o instanceof Iterable){
             Iterable<Object> json=(Iterable<Object>)o;
-            Object[] arr= StreamSupport.stream(json.spliterator(),false).map(Engine::javaToJs).toArray();
-            return Engine.newArray(arr);
+            ArrayList<Object> arr=new ArrayList<Object>();
+            for(Object e:json) arr.add(Engine.javaToJs(e));
+            return Engine.newArray(arr.toArray());
         }else if (o.getClass().isArray()){
-            Object[] arr= Arrays.asList((Object[])o).stream().map(Engine::javaToJs).toArray();
+            Object[] arr=(Object[])o;
+            for (int i=0;i<arr.length;++i) arr[i]=Engine.javaToJs(arr[i]);
             return Engine.newArray(arr);
         }else if (o instanceof Map){
             Map<String,Object> json=(Map<String,Object>)o;
