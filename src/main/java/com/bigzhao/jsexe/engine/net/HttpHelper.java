@@ -3,6 +3,7 @@ package com.bigzhao.jsexe.engine.net;
 import com.bigzhao.jsexe.engine.Engine;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
+import org.apache.http.StatusLine;
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.CookieSpecs;
@@ -75,9 +76,12 @@ public class HttpHelper {
     }
 
     public static void setCookie(String name,String value){
-        setCookie(name,value,null,null,null,false);
+        setCookie(name, value, null, null, null, false);
     }
-    public static void setCookie(String name,String value,Date expires,String domain,String path,boolean secure){
+    public static void setCookie(String name,String value,Date expires,String domain,String path){
+        setCookie(name, value, expires, path, domain, false);
+    }
+    public static void setCookie(String name,String value,Date expires,String path,String domain,boolean secure){
         CookieStore cs=getContext().getCookieStore();
         if (cs==null){
             cs=new BasicCookieStore();
@@ -104,7 +108,14 @@ public class HttpHelper {
         ScriptableObject hs=cookie();
         return hs.get(name).toString();
     }
-
+    public void delCookie(String name){
+        List<Cookie> cc=HttpHelper.getContext().getCookieStore().getCookies();
+        for (Cookie c:cc){
+            if (c.getName().equals("name")){
+                setCookie(c.getName(),c.getValue(),new Date(),c.getDomain(),c.getPath(),c.isSecure());
+            }
+        }
+    }
     public static void disableCookie2(){
         Registry<CookieSpecProvider> registry = RegistryBuilder
                 .<CookieSpecProvider> create()
@@ -115,17 +126,27 @@ public class HttpHelper {
 
 
     public static ZHttpGet get(String url){return new ZHttpGet(url);}
+    public static ZHttpGet get(String url,Object data){return new ZHttpGet(url,data);}
     public static ZHttpPost post(String url){	return new ZHttpPost(url);}
     public static ZHttpPost post(String url,Object data){	return new ZHttpPost(url).form(data);}
 
     public static void ajax(NativeObject obj){
-        ZResponse res=req(obj);
-        Engine.call(obj, "success", res.body());
+        try {
+            ZResponse res = req(obj);
+            if (res.getResponse().getStatusLine().getStatusCode()<400){
+                Engine.call(obj, "success", res.body());
+            }else{
+                StatusLine sl=res.getResponse().getStatusLine();
+                Engine.call(obj,"error",sl.getStatusCode(),sl.toString());
+            }
+        }catch (Exception e){
+            Engine.call(obj, "error",e);
+        }
     }
 
     public static ZResponse req(NativeObject obj){
         String url=obj.get("url").toString();
-        String type=obj.get("type").toString();
+        String type=obj.get("type")!=null?obj.get("type").toString():"GET";
         Object _cookie=obj.get("cookie");
         Object _header=obj.get("header");
         NativeObject cookie=_cookie instanceof NativeObject?(NativeObject)_cookie:null;
@@ -133,10 +154,11 @@ public class HttpHelper {
         Object data= Engine.jsToJava(obj.get("data"));
         ZResponse res=null;
         if ("GET".equalsIgnoreCase(type)){
-            res=get(url).cookie(cookie).header(header).exec();
+            res=get(url,data).cookie(cookie).header(header).exec();
         }else{
             res=post(url).cookie(cookie).header(header).body(data.toString()).exec();
         }
         return res;
     }
+
 }

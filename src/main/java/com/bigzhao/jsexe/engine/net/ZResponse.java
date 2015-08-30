@@ -21,7 +21,11 @@ public class ZResponse {
 	private HttpResponse res;
     private byte[] data;
 
-	public ZResponse(HttpResponse response) {	
+    public HttpResponse getResponse() {
+        return res;
+    }
+
+    public ZResponse(HttpResponse response) {
 		res=response;
 	}
 
