@@ -23,10 +23,13 @@ public class Engine {
     private static class Scope{
         final Scriptable scope=context().newObject(topScope());
         final LinkedList<String> file=new LinkedList<String>();
+        final String token;
+        final long createTime=System.currentTimeMillis();
         //final HashSet<String> loading=new HashSet<>();
         final HashMap<String,Object> loaded=new HashMap<String,Object>();
         Scope(String token){
-            ScriptableObject.putProperty(topScope(), token, this);
+            this.token=token;
+            //ScriptableObject.putProperty(topScope(),"$__jsexe_scope_token",token+"_"+System.currentTimeMillis());
             ScriptableObject.putProperty(scope, "$", Context.javaToJS(new JSInterface(), scope));
         }
     }
@@ -65,6 +68,22 @@ public class Engine {
         return jcontext.get();
     }
 
+    public static String getScopeToken(){
+        try {
+            return jc().currentScope.token;
+        }catch (Exception e){
+            return null;
+        }
+    }
+
+    public static Long getScopeCreateTime(){
+        try {
+            return jc().currentScope.createTime;
+        }catch (Exception e){
+            return null;
+        }
+    }
+
     private static Scriptable topScope() {
         if (topScope == null) topScope = context().initStandardObjects();
         return topScope;
@@ -86,7 +105,10 @@ public class Engine {
 
     public static Scriptable scope(String token) {
         Scope s = scopes.get(token);
-        if (s == null) s=new Scope(token);
+        if (s == null){
+            s=new Scope(token);
+            scopes.put(token,s);
+        }
         jc().currentScope = s;
         return s.scope;
     }
@@ -140,7 +162,7 @@ public class Engine {
             ScriptableObject.putProperty(scope, "arguments", newArray(args));
             Object ret=context().evaluateString(scope, code, filename, 1, null);
             //jc().currentScope.loading.remove(filename);
-            jc().currentScope.loaded.put(filename,ret);
+            jc().currentScope.loaded.put(filename, ret);
             return ret;
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -158,7 +180,9 @@ public class Engine {
     }
 
     public static void exit() {
+        scopes=new ConcurrentHashMap<String, Scope>();
         jcontext=new ThreadLocal<JContext>();
+        topScope=null;
     }
 
     public static Object call(String name,Object...args){
@@ -258,6 +282,8 @@ public class Engine {
             return json;
         }else if (o instanceof NativeJavaObject){
             return ((NativeJavaObject)o).unwrap();
+        }else if (o instanceof ConsString){
+            return ((ConsString)o).toString();
         }
         return o;
     }

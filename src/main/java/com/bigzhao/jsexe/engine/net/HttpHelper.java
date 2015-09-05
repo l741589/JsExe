@@ -8,10 +8,12 @@ import org.apache.http.client.CookieStore;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.params.ClientPNames;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.cookie.Cookie;
+import org.apache.http.cookie.CookieSpec;
 import org.apache.http.cookie.CookieSpecProvider;
 import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -19,11 +21,13 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.cookie.*;
+import org.apache.http.protocol.HttpContext;
 import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,12 +39,14 @@ public class HttpHelper {
 
     public static HttpHost proxy;
 
-    private static ConcurrentHashMap<Scriptable,HttpClientContext> contexts = new ConcurrentHashMap<Scriptable,HttpClientContext>();
+    private static ConcurrentHashMap<String,HttpClientContext> contexts = new ConcurrentHashMap<String,HttpClientContext>();
 
     private static CloseableHttpClient client;
 
     public static HttpClient getClient(){
-        if (client==null) client= HttpClients.createDefault();
+        if (client==null) {
+            client=HttpClientBuilder.create().build();
+        }
         return client;
     }
 
@@ -50,24 +56,32 @@ public class HttpHelper {
 
     public static HttpResponse exec(HttpUriRequest request){
         try {
-            return getClient().execute(request,getContext());
-        } catch (IOException e) {
+            HttpClient c=getClient();
+            Field f=c.getClass().getDeclaredField("cookieStore");
+            f.setAccessible(true);
+            f.set(c,null);
+            return c.execute(request, getContext());
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
     }
 
     public static HttpClientContext getContext(){
-        Scriptable scope= Engine.scope();
-        HttpClientContext cx=contexts.get(scope);
-        if (cx==null) cx=HttpClientContext.create();
-        contexts.put(scope,cx);
+        String token=Engine.getScopeToken();
+        Scriptable scope= Engine.scope(token);
+        HttpClientContext cx=contexts.get(token);
+        if (cx==null) {
+            cx=HttpClientContext.create();
+            cx.setCookieStore(new BasicCookieStore());
+        }
+        contexts.put(token,cx);
         return cx;
 
     }
 
     public static void reset(){
-        client=null;
+        contexts=new ConcurrentHashMap<String, HttpClientContext>();
     }
 
     public void proxy(String host,int port){
@@ -106,7 +120,9 @@ public class HttpHelper {
 
     public String cookie(String name){
         ScriptableObject hs=cookie();
-        return hs.get(name).toString();
+        Object o=hs.get(name);
+        if (o==null) return null;
+        return o.toString();
     }
     public void delCookie(String name){
         List<Cookie> cc=HttpHelper.getContext().getCookieStore().getCookies();

@@ -126,5 +126,6 @@ public class JSInterface {
     public MediaHelper media=new MediaHelper();
     public JSInterfaceIO io=new JSInterfaceIO();
     public static Object util=new JSInterfaceUtil();
+    public static JsExeUtil jsexe=new JsExeUtil();
 
 }

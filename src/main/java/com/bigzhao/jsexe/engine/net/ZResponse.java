@@ -9,6 +9,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.util.EntityUtils;
 import org.jsoup.Jsoup;
 import org.mozilla.javascript.*;
+import org.mozilla.javascript.json.JsonParser;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -85,13 +86,18 @@ public class ZResponse {
 	
 	public Object json(String encoding){
 		//JSONObject obj=JSON.parseObject($body(encoding));
-            return Engine.eval("(" + $body(encoding) + ")");
-
+        try {
+            return (new JsonParser(Engine.context(), Engine.scope())).parseValue($body(encoding));
+        } catch (Exception e) {
+            e.printStackTrace();
+            JSONObject obj=JSON.parseObject($body());
+            return Engine.javaToJs(obj);
+        }
 	}
 	
 	public Object json(){
         try {
-            return Engine.eval("(" + $body() + ")");
+            return (new JsonParser(Engine.context(), Engine.scope())).parseValue($body());
         }catch (Exception e){
             e.printStackTrace();
             JSONObject obj=JSON.parseObject($body());
