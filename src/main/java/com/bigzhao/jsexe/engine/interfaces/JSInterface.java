@@ -5,6 +5,7 @@ import com.bigzhao.jsexe.engine.media.MediaHelper;
 import com.bigzhao.jsexe.engine.net.HttpHelper;
 import com.bigzhao.jsexe.engine.net.ZResponse;
 import org.apache.commons.io.FileUtils;
+import org.mozilla.javascript.NativeObject;
 
 
 import java.io.*;
@@ -127,5 +128,5 @@ public class JSInterface {
     public JSInterfaceIO io=new JSInterfaceIO();
     public static Object util=new JSInterfaceUtil();
     public static JsExeUtil jsexe=new JsExeUtil();
-
+    public NativeObject ext;
 }

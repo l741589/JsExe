@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.bigzhao.jsexe.engine.interfaces.JSInterface;
+import com.bigzhao.jsexe.engine.interfaces.JSInterfaceHelper;
 import org.apache.commons.io.FileUtils;
 import org.apache.http.util.TextUtils;
 import org.mozilla.javascript.*;
@@ -11,6 +12,7 @@ import org.mozilla.javascript.*;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
+import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -27,10 +29,20 @@ public class Engine {
         final long createTime=System.currentTimeMillis();
         //final HashSet<String> loading=new HashSet<>();
         final HashMap<String,Object> loaded=new HashMap<String,Object>();
+        final JSInterface jsInterface;
         Scope(String token){
             this.token=token;
             //ScriptableObject.putProperty(topScope(),"$__jsexe_scope_token",token+"_"+System.currentTimeMillis());
-            ScriptableObject.putProperty(scope, "$", Context.javaToJS(new JSInterface(), scope));
+            Scriptable ji=(Scriptable)Context.javaToJS(jsInterface = new JSInterface(), scope);
+            ScriptableObject.putProperty(scope, "$", ji);
+            jsInterface.ext=newObject(ji);
+            for (Map.Entry<String,Object> e: JSInterfaceHelper.exts.entrySet()){
+                if (e.getValue() instanceof Method){
+                    Engine.newFunction(e.getKey(), (Method) e.getValue(), (Scriptable)ji.get("ext", null));
+                }else {
+                    jsInterface.ext.put(e.getKey(), Context.javaToJS(e.getValue(), scope));
+                }
+            }
         }
     }
 
@@ -176,7 +188,7 @@ public class Engine {
     }
 
     public static Object eval(String text){
-        return context().evaluateString(scope(),text,"EVAL",1,null);
+        return context().evaluateString(scope(), text, "EVAL", 1, null);
     }
 
     public static void exit() {
@@ -207,6 +219,16 @@ public class Engine {
 
     public static NativeObject newObject(){
         return (NativeObject)context().newObject(scope());
+    }
+
+    public static NativeObject newObject(Scriptable scope){
+        return (NativeObject)context().newObject(scope);
+    }
+
+    public static Function newFunction(String name,Method m,Scriptable obj){
+        Function f=new NativeJavaMethod(m,m.getName());
+        obj.put(name,null,f);
+        return f;
     }
 
     public static NativeArray newArray(int length){
