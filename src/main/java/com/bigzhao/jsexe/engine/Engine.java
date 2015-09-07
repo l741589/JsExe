@@ -35,14 +35,7 @@ public class Engine {
             //ScriptableObject.putProperty(topScope(),"$__jsexe_scope_token",token+"_"+System.currentTimeMillis());
             Scriptable ji=(Scriptable)Context.javaToJS(jsInterface = new JSInterface(), scope);
             ScriptableObject.putProperty(scope, "$", ji);
-            jsInterface.ext=newObject(ji);
-            for (Map.Entry<String,Object> e: JSInterfaceHelper.exts.entrySet()){
-                if (e.getValue() instanceof Method){
-                    Engine.newFunction(e.getKey(), (Method) e.getValue(), (Scriptable)ji.get("ext", null));
-                }else {
-                    jsInterface.ext.put(e.getKey(), Context.javaToJS(e.getValue(), scope));
-                }
-            }
+            JSInterfaceHelper.apply(jsInterface,ji);
         }
     }
 
@@ -225,9 +218,9 @@ public class Engine {
         return (NativeObject)context().newObject(scope);
     }
 
-    public static Function newFunction(String name,Method m,Scriptable obj){
+    public static Function newFunction(String name,Scriptable obj,Method m){
         Function f=new NativeJavaMethod(m,m.getName());
-        obj.put(name,null,f);
+        ScriptableObject.putProperty(obj,name,f);
         return f;
     }
 
@@ -242,6 +235,7 @@ public class Engine {
     }
 
     public static Object javaToJs(Object o){
+        if (o==null) return null;
         if (o instanceof Iterable){
             Iterable<Object> json=(Iterable<Object>)o;
             ArrayList<Object> arr=new ArrayList<Object>();
@@ -269,6 +263,7 @@ public class Engine {
 
     @SuppressWarnings("unchecked")
     public static <T> T jsToJava(Object obj,Class<T> cls){
+        if (obj==null) return null;
         Object json=jsToJava(obj);
         if (json instanceof JSON) {
             if (cls.isArray()) {
@@ -286,6 +281,7 @@ public class Engine {
     }
 
     public static Object jsToJava(Object o){
+        if (o==null) return null;
         if (o instanceof NativeObject){
             NativeObject obj=(NativeObject)o;
             Object[] ids=obj.getAllIds();
