@@ -21,21 +21,36 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Engine {
 
+    public static enum ScopeStrategy{
+        GLOBAL_SINGLE,
+        THREAD_LOCAL,
+        TOKEN_LOCAL,
+    }
+
+    public static ScopeStrategy scopeStrategy=ScopeStrategy.TOKEN_LOCAL;
 
     private static class Scope{
+        static Scope instance;
         final Scriptable scope=context().newObject(topScope());
         final LinkedList<String> file=new LinkedList<String>();
-        final String token;
+        final HashMap<String,Object> loaded=new HashMap<String,Object>();
         final long createTime=System.currentTimeMillis();
         //final HashSet<String> loading=new HashSet<>();
-        final HashMap<String,Object> loaded=new HashMap<String,Object>();
         final JSInterface jsInterface;
+
+        String token;
         Scope(String token){
+            instance=this;
             this.token=token;
             //ScriptableObject.putProperty(topScope(),"$__jsexe_scope_token",token+"_"+System.currentTimeMillis());
             Scriptable ji=(Scriptable)Context.javaToJS(jsInterface = new JSInterface(), scope);
             ScriptableObject.putProperty(scope, "$", ji);
             JSInterfaceHelper.apply(jsInterface,ji);
+        }
+
+        public static Scope getInstance() {
+            if (instance==null) return new Scope("$$$###@@@<<<<Def4u1t-t0keN>>>@@@###$$$");
+            return instance;
         }
     }
 
@@ -98,8 +113,12 @@ public class Engine {
         return jc().context;
     }
     public static Scriptable scope() {
-        if (jc().currentScope==null) jc().currentScope=new Scope("$$$###@@@<<<<Def4u1t-t0keN>>>@@@###$$$");
-        return jc().currentScope.scope;
+        switch (scopeStrategy){
+            case GLOBAL_SINGLE:return Scope.getInstance().scope;
+            default:
+                if (jc().currentScope==null) jc().currentScope=new Scope("$$$###@@@<<<<Def4u1t-t0keN>>>@@@###$$$");
+                return jc().currentScope.scope;
+        }
     }
 
     public static void deleteScope(String token){
@@ -109,13 +128,29 @@ public class Engine {
     }
 
     public static Scriptable scope(String token) {
-        Scope s = scopes.get(token);
-        if (s == null){
-            s=new Scope(token);
-            scopes.put(token,s);
+        switch(scopeStrategy){
+            case TOKEN_LOCAL: {
+                Scope s = scopes.get(token);
+                if (s == null) {
+                    s = new Scope(token);
+                    scopes.put(token, s);
+                }
+                jc().currentScope = s;
+                return s.scope;
+            }
+            case THREAD_LOCAL: {
+                Scriptable s = scope();
+                jc().currentScope.token = token;
+                return s;
+            }
+            case GLOBAL_SINGLE:{
+                Scope s=Scope.getInstance();
+                jc().currentScope=s;
+                s.token=token;
+                return s.scope;
+            }
         }
-        jc().currentScope = s;
-        return s.scope;
+        return null;
     }
 
     public static String genFilename(String filename){
