@@ -22,13 +22,17 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.cookie.*;
 import org.apache.http.protocol.HttpContext;
+import org.mozilla.javascript.NativeArray;
 import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.text.DateFormat;
+import java.text.ParseException;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -89,6 +93,31 @@ public class HttpHelper {
         else HttpHelper.proxy=new HttpHost(host,port,"http");
     }
 
+    public static void setCookies(NativeArray obj){
+        for (Object e:obj){
+            setCookie((Scriptable)e);
+        }
+    }
+    public static void setCookie(Scriptable obj){
+        CookieStore cs=getContext().getCookieStore();
+        if (cs==null){
+            cs=new BasicCookieStore();
+            getContext().setCookieStore(cs);
+        }
+        BasicClientCookie cookie=new BasicClientCookie(ScriptableObject.getProperty(obj,"name")+"",ScriptableObject.getProperty(obj,"value")+"");
+        if (ScriptableObject.getProperty(obj,"secure")!=null) cookie.setSecure("true".equals(ScriptableObject.getProperty(obj,"secure")));
+        if (ScriptableObject.getProperty(obj,"expires")!=null) {
+            try {
+                cookie.setExpiryDate(DateFormat.getInstance().parse(ScriptableObject.getProperty(obj, "expires").toString()));
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+        }
+        if (ScriptableObject.getProperty(obj,"domain")!=null) cookie.setDomain(ScriptableObject.getProperty(obj,"domain").toString());
+        if (ScriptableObject.getProperty(obj,"path")!=null) cookie.setPath(ScriptableObject.getProperty(obj,"path").toString());
+        cs.addCookie(cookie);
+    }
+
     public static void setCookie(String name,String value){
         setCookie(name, value, null, null, null, false);
     }
@@ -116,6 +145,30 @@ public class HttpHelper {
             ScriptableObject.putProperty(cookies, c.getName(), c.getValue());
         }
         return cookies;
+    }
+
+    private ScriptableObject rawCookie(Cookie c){
+        ScriptableObject o=Engine.newObject();
+        ScriptableObject.putProperty(o,"name", c.getName());
+        ScriptableObject.putProperty(o,"value", c.getValue());
+        ScriptableObject.putProperty(o,"expires",c.getExpiryDate()+"");
+        ScriptableObject.putProperty(o,"path",c.getPath());
+        ScriptableObject.putProperty(o,"domain",c.getDomain());
+        ScriptableObject.putProperty(o,"secure",c.isSecure()+"");
+        return o;
+    }
+
+    public ScriptableObject rawCookie(){
+        List<Cookie> cc=HttpHelper.getContext().getCookieStore().getCookies();
+        List<ScriptableObject> arr=new LinkedList<ScriptableObject>();
+        for (Cookie c:cc) arr.add(rawCookie(c));
+        return Engine.newArray(arr.toArray());
+    }
+
+    public ScriptableObject rawCookie(String name){
+        List<Cookie> cc=HttpHelper.getContext().getCookieStore().getCookies();
+        for (Cookie c:cc) if (c.getName().equals(name)) return rawCookie(c);
+        return null;
     }
 
     public String cookie(String name){
